@@ -1,0 +1,185 @@
+---
+title: "Reproducible Research Project 2"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+We want to answer two questions using the NOAA data.
+- Across the United States, which types of events (as indicated in the 𝙴𝚅𝚃𝚈𝙿𝙴 variable) are most harmful with respect to population health?
+- Across the United States, which types of events have the greatest economic consequences?
+
+### Pulling in the NOAA data file
+```{r}
+rm(list=ls())
+
+library(car)
+library(ggplot2)
+
+setwd("/Users/marimuraki/Dropbox/Mari/courses/Coursera/Reproducible Research/project2")
+
+url    <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
+zip    <- "./data/repdata-data-StormData.csv.bz2" 
+file   <- "./data/repdata-data-StormData.csv"
+
+if (!file.exists(zip)) {
+  download.file(url, 
+                destfile=zip)
+}
+
+if (!file.exists(file)) {
+  unzip(zip, 
+        exdir="./data")
+  file.remove(zip)
+}
+
+data <- read.csv(file, 
+                 sep=",",
+                 na.string = "NA",
+                 header=TRUE)
+```
+
+### Subsetting to key variables
+
+We are interested in analyzing the events that impact population health and economy. We will subset the data to the relevant variables below.
+
+- EVTYPE: Event Type (e.g. tornado, flood, etc.)
+- FATALITIES: Number of fatalities
+- INJURIES: Number of injuries
+- PROPDMG: Property damage estimates, entered as actual dollar amounts
+- PROPDMGEXP: Alphabetic Codes to signify magnitude “K” for thousands, “M” for millions, and “B” for billions)
+- CROPDMG: Crop damage estimates, entered as actual dollar amounts
+- CROPDMGEXP: Alphabetic Codes to signify magnitude “K” for thousands, “M” for millions, and “B” for billions)
+
+```{r}
+sublist <- c("EVTYPE", "FATALITIES", "INJURIES", "PROPDMG", "PROPDMGEXP", "CROPDMG", "CROPDMGEXP")
+stormdata <- subset(data, select=sublist)
+```
+
+### Cleaning up main EVTYPE categories e.g., misspellings
+
+The NOAA data file is quite messy. The data needs to be cleaned in order for accurate analyses. The variables we will need to clean for our analyses are:
+
+- EVTYPE
+  - We need to clean up misspellings, distinct inputs to be consolidated, etc. For example, "tstm"" re-coded with / as "thunderstorm".
+- CROPDMG & CROPDMGEXP; PROPDMG & PROPDMGEXP
+  - We need to convert {CROPDMG, PROPDMG} to actual dollar values using the multipliers {CROPDMGEXP, PROPDMGEXP}
+
+#### Cleaning EVTYPE values
+
+```{r}
+stormdata$EVTYPE <- tolower(stormdata$EVTYPE)
+stormdata$EVTYPE[grepl("blizzard", stormdata$EVTYPE, ignore.case = TRUE)]        <- "blizzard"  
+stormdata$EVTYPE[grepl("cold", stormdata$EVTYPE, ignore.case = TRUE)]            <- "cold"  
+stormdata$EVTYPE[grepl("fire", stormdata$EVTYPE, ignore.case = TRUE)]            <- "fire"  
+stormdata$EVTYPE[grepl("flood", stormdata$EVTYPE, ignore.case = TRUE)]           <- "flood"  
+stormdata$EVTYPE[grepl("hail", stormdata$EVTYPE, ignore.case = TRUE)]            <- "hail"  
+stormdata$EVTYPE[grepl("heat", stormdata$EVTYPE, ignore.case = TRUE)]            <- "heat"  
+stormdata$EVTYPE[grepl("high surf", stormdata$EVTYPE, ignore.case = TRUE)]       <- "high surf"
+stormdata$EVTYPE[grepl("hurricane", stormdata$EVTYPE, ignore.case = TRUE)]       <- "hurricane"  
+stormdata$EVTYPE[grepl("lightn", stormdata$EVTYPE, ignore.case = TRUE)]          <- "lightning"  
+stormdata$EVTYPE[grepl("mud.*slide", stormdata$EVTYPE, ignore.case = TRUE)]      <- "mudslide"  
+stormdata$EVTYPE[grepl("rain", stormdata$EVTYPE, ignore.case = TRUE)]            <- "rain"  
+stormdata$EVTYPE[grepl("precip", stormdata$EVTYPE, ignore.case = TRUE)]          <- "rain"  
+stormdata$EVTYPE[grepl("rip current", stormdata$EVTYPE, ignore.case = TRUE)]     <- "rip current"
+stormdata$EVTYPE[grepl("snow", stormdata$EVTYPE, ignore.case = TRUE)]            <- "snow"  
+stormdata$EVTYPE[grepl("storm surge", stormdata$EVTYPE, ignore.case = TRUE)]     <- "storm surge"  
+stormdata$EVTYPE[grepl("thun.*orm", stormdata$EVTYPE, ignore.case = TRUE)]       <- "thunderstorm"  
+stormdata$EVTYPE[grepl("tstm", stormdata$EVTYPE, ignore.case = TRUE)]            <- "thunderstorm"  
+stormdata$EVTYPE[grepl("tornad", stormdata$EVTYPE, ignore.case = TRUE)]          <- "tornado"  
+stormdata$EVTYPE[grepl("tropical.*storm", stormdata$EVTYPE, ignore.case = TRUE)] <- "tropical storm"  
+stormdata$EVTYPE[grepl("wind", stormdata$EVTYPE, ignore.case = TRUE)]            <- "wind"  
+stormdata$EVTYPE[grepl("winter.*mix", stormdata$EVTYPE, ignore.case = TRUE)]     <- "winter mix"
+stormdata$EVTYPE[grepl("winter storm", stormdata$EVTYPE, ignore.case = TRUE)]    <- "winter storm"  
+stormdata$EVTYPE[grepl("volcanic", stormdata$EVTYPE, ignore.case = TRUE)]        <- "volcanic"  
+```
+
+#### Converting CROPDMG & PROPDMG
+
+```{r}
+stormdata$CROPDMGEXP <- tolower(stormdata$CROPDMGEXP)
+stormdata$PROPDMGEXP <- tolower(stormdata$PROPDMGEXP)
+convert_dollars <- "'0'=1;'1'=10;'2'=100;'3'=1000;'4'=10000;'5'=100000;'6'=1000000;'7'=10000000;'8'=100000000;'b'=1000000000;'h'=100;'k'=1000;'m'=1000000;'-'=0;'?'=0;'+'=0;=0"
+stormdata$PROPDMG_dollars <- stormdata$PROPDMG * as.numeric(Recode(stormdata$PROPDMGEXP,
+                                                                   convert_dollars,
+                                                                   as.factor.result = FALSE))
+stormdata$CROPDMG_dollars <- stormdata$CROPDMG * as.numeric(Recode(stormdata$CROPDMGEXP,
+                                                                   convert_dollars,
+                                                                   as.factor.result = FALSE))
+
+
+
+```
+
+### Analysis & Results
+
+#### Question 1: Across the United States, which types of events (as indicated in the 𝙴𝚅𝚃𝚈𝙿𝙴 variable) are most harmful with respect to population health?
+
+We will define events "harmful with respect to population health" to be the combination of fatalities and injuries.
+
+```{r}
+harm_pophealth <- aggregate(list (harm = stormdata$FATALITIES + stormdata$INJURIES),
+                            list (EVTYPE = stormdata$EVTYPE),
+                            sum)
+harm_pophealth <- harm_pophealth[with (harm_pophealth, order (harm, decreasing=TRUE)),]
+head(harm_pophealth)
+```
+
+Let us identify the top 10 events harmful to population health. We see that tornados account by far the most to total fatalities and injuries. Tornados are 8x more than the second highest contributor, heat.
+
+```{r}
+top_harm_pophealth <- harm_pophealth[order(-harm_pophealth$harm),][1:10,]
+list(top_harm_pophealth)
+```
+
+Visualizing these cumulative event counts over time, we can see how high tornado events are compared to the other events affecting population health.
+
+```{r}
+png(file="plot1_harm_pophealth.png")
+ggplot(top_harm_pophealth, aes(x = reorder(EVTYPE, -harm), y = harm)) + 
+  geom_bar(stat = "identity", aes(fill = harm), position = "dodge") + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
+  xlab("Event Type") +
+  ylab("Total Events") + 
+  ggtitle("Harmful events (fatalities + injuries) to population health in USA")
+dev.off()
+```
+
+#### Q2: Across the United States, which types of events have the greatest economic consequences?
+
+We will define events having the "greatest economic consequences" to be the combination of crop and property damage.
+
+```{r}
+harm_econ <- aggregate(list (harm = stormdata$CROPDMG + stormdata$PROPDMG),
+                       list (EVTYPE = stormdata$EVTYPE),
+                       sum)
+harm_econ <- harm_econ[with (harm_econ, order (harm, decreasing=TRUE)),]
+head(harm_econ)
+```
+
+Let us identify the top 10 events harmful to the economy. Similar to population health above, tornados are the top contributors to economic harm. 
+
+```{r}
+top_harm_econ <- harm_econ[order(-harm_econ$harm),][1:10,]
+list(top_harm_econ)
+```
+
+Visualizing these cumulative event counts over time, we see that thunderstorms and floods closely follow tornados as the top contributors to economically harmful events.
+
+```{r}
+png(file="plot1_harm_econ.png")
+ggplot(top_harm_econ, aes(x = reorder(EVTYPE, -harm), y = harm)) + 
+  geom_bar(stat = "identity", aes(fill = harm), position = "dodge") + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
+  xlab("Event Type") +
+  ylab("Total Events") + 
+  ggtitle("Harmful economic events (crop + property damage) to US economy")
+dev.off()
+```
+
+### Future Analysis
+Future analysis will include:
+- Events by year: Rather than aggregating all events over time, we can examine how events change over time.
+- Break out events: Rather than combining, for example, fatalities + injuries, we can examine how each contribute.
