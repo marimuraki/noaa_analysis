@@ -1,6 +1,6 @@
 ---
 title: "Reproducible Research Project 2"
-output: pdf_document
+output: html_document
 ---
 
 ```{r setup, include=FALSE}
@@ -63,11 +63,11 @@ stormdata <- subset(data, select=sublist)
 The NOAA data file is quite messy. The data needs to be cleaned in order for accurate analyses. The variables we will need to clean for our analyses are:
 
 - EVTYPE
-  - We need to clean up misspellings, distinct inputs to be consolidated, etc. For example, "tstm"" re-coded with / as "thunderstorm".
 - CROPDMG & CROPDMGEXP; PROPDMG & PROPDMGEXP
-  - We need to convert {CROPDMG, PROPDMG} to actual dollar values using the multipliers {CROPDMGEXP, PROPDMGEXP}
 
 #### Cleaning EVTYPE values
+
+We need to clean up misspellings, distinct inputs to be consolidated, etc. For example, "tstm"" re-coded with / as "thunderstorm".
 
 ```{r}
 stormdata$EVTYPE <- tolower(stormdata$EVTYPE)
@@ -97,6 +97,8 @@ stormdata$EVTYPE[grepl("volcanic", stormdata$EVTYPE, ignore.case = TRUE)]       
 ```
 
 #### Converting CROPDMG & PROPDMG
+
+We need to convert {CROPDMG, PROPDMG} to actual dollar values using the multipliers {CROPDMGEXP, PROPDMGEXP}. Currently {CROPDMGEXP, PROPDMGEXP} includes numeric exponential values but also strings such as "h", "k", "m", "b" for hundred, thousand, million and billion respectively.
 
 ```{r}
 stormdata$CROPDMGEXP <- tolower(stormdata$CROPDMGEXP)
@@ -146,14 +148,12 @@ list(top_harm_pophealth)
 Visualizing these cumulative event counts over time, we can see how high tornado events are compared to the other events affecting population health.
 
 ```{r}
-png(file="plot1_harm_pophealth.png")
 ggplot(top_harm_pophealth, aes(x = reorder(EVTYPE, -harm), y = harm)) + 
   geom_bar(stat = "identity", aes(fill = harm), position = "dodge") + 
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
   xlab("Event Type") +
   ylab("Total Events") + 
   ggtitle("Harmful events (fatalities + injuries) to population health in USA")
-dev.off()
 ```
 
 #### Q2: Across the United States, which types of events have the greatest economic consequences?
@@ -175,17 +175,15 @@ top_harm_econ <- harm_econ[order(-harm_econ$harm),][1:10,]
 list(top_harm_econ)
 ```
 
-Visualizing these cumulative event counts over time, we see that floods, hurricanes and tornadoes are the top contributors to economically harmful events --- with floods accounting for 2x that of hurricanes.
+Visualizing these cumulative event counts over time, we see that floods, hurricanes and tornadoes are the top contributors to economically harmful events. Floods, the top contributor, accounts for 2x that of the second highest, hurricanes.
 
 ```{r}
-png(file="plot1_harm_econ.png")
 ggplot(top_harm_econ, aes(x = reorder(EVTYPE, -harm), y = harm)) + 
   geom_bar(stat = "identity", aes(fill = harm), position = "dodge") + 
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
   xlab("Event Type") +
   ylab("Total Events") + 
   ggtitle("Harmful economic events (crop + property damage) to US economy")
-dev.off()
 ```
 
 ### Future Analysis
