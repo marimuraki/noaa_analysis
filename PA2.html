@@ -121,7 +121,7 @@ library(car)</code></pre>
 <pre><code>## Warning: package 'car' was built under R version 3.2.4</code></pre>
 <pre class="r"><code>library(ggplot2)
 
-setwd(&quot;/Users/marimuraki/Dropbox/Mari/courses/Coursera/Reproducible Research/project2&quot;)
+setwd(&quot;/Users/marimuraki/Dropbox/Mari/courses/Coursera/NOAA&quot;)
 
 url    &lt;- &quot;https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2&quot;
 zip    &lt;- &quot;./data/repdata-data-StormData.csv.bz2&quot; 
@@ -198,13 +198,26 @@ stormdata$EVTYPE[grepl(&quot;volcanic&quot;, stormdata$EVTYPE, ignore.case = TRU
 <h4>Converting CROPDMG &amp; PROPDMG</h4>
 <pre class="r"><code>stormdata$CROPDMGEXP &lt;- tolower(stormdata$CROPDMGEXP)
 stormdata$PROPDMGEXP &lt;- tolower(stormdata$PROPDMGEXP)
-convert_dollars &lt;- &quot;'0'=1;'1'=10;'2'=100;'3'=1000;'4'=10000;'5'=100000;'6'=1000000;'7'=10000000;'8'=100000000;'b'=1000000000;'h'=100;'k'=1000;'m'=1000000;'-'=0;'?'=0;'+'=0;=0&quot;
-stormdata$PROPDMG_dollars &lt;- stormdata$PROPDMG * as.numeric(Recode(stormdata$PROPDMGEXP,
-                                                                   convert_dollars,
-                                                                   as.factor.result = FALSE))
-stormdata$CROPDMG_dollars &lt;- stormdata$CROPDMG * as.numeric(Recode(stormdata$CROPDMGEXP,
-                                                                   convert_dollars,
-                                                                   as.factor.result = FALSE))</code></pre>
+unique(stormdata$CROPDMGEXP)</code></pre>
+<pre><code>## [1] &quot;&quot;  &quot;m&quot; &quot;k&quot; &quot;b&quot; &quot;?&quot; &quot;0&quot; &quot;2&quot;</code></pre>
+<pre class="r"><code>unique(stormdata$PROPDMGEXP)</code></pre>
+<pre><code>##  [1] &quot;k&quot; &quot;m&quot; &quot;&quot;  &quot;b&quot; &quot;+&quot; &quot;0&quot; &quot;5&quot; &quot;6&quot; &quot;?&quot; &quot;4&quot; &quot;2&quot; &quot;3&quot; &quot;h&quot; &quot;7&quot; &quot;-&quot; &quot;1&quot; &quot;8&quot;</code></pre>
+<pre class="r"><code>stormdata$CROPDMGEXP[stormdata$CROPDMGEXP %in% c(&quot;+&quot;,&quot;0&quot;,&quot;?&quot;,&quot;-&quot;,&quot;&quot;)] &lt;- 0
+stormdata$CROPDMGEXP[stormdata$CROPDMGEXP == &quot;k&quot;] &lt;- 3
+stormdata$CROPDMGEXP[stormdata$CROPDMGEXP == &quot;m&quot;] &lt;- 6
+stormdata$CROPDMGEXP[stormdata$CROPDMGEXP == &quot;h&quot;] &lt;- 2
+stormdata$CROPDMGEXP[stormdata$CROPDMGEXP == &quot;b&quot;] &lt;- 9
+unique(stormdata$CROPDMGEXP)</code></pre>
+<pre><code>## [1] &quot;0&quot; &quot;6&quot; &quot;3&quot; &quot;9&quot; &quot;2&quot;</code></pre>
+<pre class="r"><code>stormdata$PROPDMGEXP[stormdata$PROPDMGEXP %in% c(&quot;+&quot;,&quot;0&quot;,&quot;?&quot;,&quot;-&quot;,&quot;&quot;)] &lt;- 0
+stormdata$PROPDMGEXP[stormdata$PROPDMGEXP == &quot;k&quot;] &lt;- 3
+stormdata$PROPDMGEXP[stormdata$PROPDMGEXP == &quot;m&quot;] &lt;- 6
+stormdata$PROPDMGEXP[stormdata$PROPDMGEXP == &quot;h&quot;] &lt;- 2
+stormdata$PROPDMGEXP[stormdata$PROPDMGEXP == &quot;b&quot;] &lt;- 9
+unique(stormdata$PROPDMGEXP)</code></pre>
+<pre><code>##  [1] &quot;3&quot; &quot;6&quot; &quot;0&quot; &quot;9&quot; &quot;5&quot; &quot;4&quot; &quot;2&quot; &quot;7&quot; &quot;1&quot; &quot;8&quot;</code></pre>
+<pre class="r"><code>stormdata$CROPDMG_dollars &lt;- stormdata$CROPDMG * 10^as.numeric(stormdata$CROPDMGEX) 
+stormdata$PROPDMG_dollars &lt;- stormdata$PROPDMG * 10^as.numeric(stormdata$PROPDMGEX)</code></pre>
 </div>
 </div>
 <div id="analysis-results" class="section level3">
@@ -254,34 +267,34 @@ dev.off()</code></pre>
 <div id="q2-across-the-united-states-which-types-of-events-have-the-greatest-economic-consequences" class="section level4">
 <h4>Q2: Across the United States, which types of events have the greatest economic consequences?</h4>
 <p>We will define events having the “greatest economic consequences” to be the combination of crop and property damage.</p>
-<pre class="r"><code>harm_econ &lt;- aggregate(list (harm = stormdata$CROPDMG + stormdata$PROPDMG),
+<pre class="r"><code>harm_econ &lt;- aggregate(list (harm = stormdata$CROPDMG_dollars + stormdata$PROPDMG_dollars),
                        list (EVTYPE = stormdata$EVTYPE),
                        sum)
 harm_econ &lt;- harm_econ[with (harm_econ, order (harm, decreasing=TRUE)),]
 head(harm_econ)</code></pre>
-<pre><code>##           EVTYPE      harm
-## 249      tornado 3315774.6
-## 248 thunderstorm 2862930.6
-## 62         flood 2800638.2
-## 82          hail 1285277.0
-## 126    lightning  607290.9
-## 297         wind  474283.5</code></pre>
-<p>Let us identify the top 10 events harmful to the economy. Similar to population health above, tornados are the top contributors to economic harm.</p>
+<pre><code>##          EVTYPE         harm
+## 62        flood 180592324935
+## 106   hurricane  90271472810
+## 249     tornado  57418279346
+## 180 storm surge  47965579000
+## 82         hail  20737204410
+## 33      drought  15018672000</code></pre>
+<p>Let us identify the top 10 events harmful to the economy. Floods are the top contributors to economic harm, followed by hurricane and tornadoes.</p>
 <pre class="r"><code>top_harm_econ &lt;- harm_econ[order(-harm_econ$harm),][1:10,]
 list(top_harm_econ)</code></pre>
 <pre><code>## [[1]]
-##           EVTYPE       harm
-## 249      tornado 3315774.58
-## 248 thunderstorm 2862930.59
-## 62         flood 2800638.24
-## 82          hail 1285277.04
-## 126    lightning  607290.89
-## 297         wind  474283.55
-## 178         snow  152649.58
-## 299 winter storm  135699.58
-## 59          fire  134789.03
-## 146         rain   71632.51</code></pre>
-<p>Visualizing these cumulative event counts over time, we see that thunderstorms and floods closely follow tornados as the top contributors to economically harmful events.</p>
+##             EVTYPE         harm
+## 62           flood 180592324935
+## 106      hurricane  90271472810
+## 249        tornado  57418279346
+## 180    storm surge  47965579000
+## 82            hail  20737204410
+## 33         drought  15018672000
+## 248   thunderstorm  12345977914
+## 117      ice storm   8967041360
+## 59            fire   8904910130
+## 252 tropical storm   8409286550</code></pre>
+<p>Visualizing these cumulative event counts over time, we see that floods, hurricanes and tornadoes are the top contributors to economically harmful events — with floods accounting for 2x that of hurricanes.</p>
 <pre class="r"><code>png(file=&quot;plot1_harm_econ.png&quot;)
 ggplot(top_harm_econ, aes(x = reorder(EVTYPE, -harm), y = harm)) + 
   geom_bar(stat = &quot;identity&quot;, aes(fill = harm), position = &quot;dodge&quot;) + 

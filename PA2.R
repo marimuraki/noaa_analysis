@@ -7,7 +7,7 @@ rm(list=ls())
 library(car)
 library(ggplot2)
 
-setwd("/Users/marimuraki/Dropbox/Mari/courses/Coursera/Reproducible Research/project2")
+setwd("/Users/marimuraki/Dropbox/Mari/courses/Coursera/NOAA")
 
 url    <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
 zip    <- "./data/repdata-data-StormData.csv.bz2" 
@@ -73,17 +73,29 @@ stormdata$EVTYPE[grepl("volcanic", stormdata$EVTYPE, ignore.case = TRUE)]       
 
 # Converting CROPDMG & CROPDMGEXP, PROPDMG & PROPDMGEXP >> $
 
-stormdata$PROPDMCROPDMGEXP <- tolower(stormdata$CROPDMGEXP)
-stormdata$GEXP <- tolower(stormdata$PROPDMGEXP)
-convert_dollars <- "'0'=1;'1'=10;'2'=100;'3'=1000;'4'=10000;'5'=100000;'6'=1000000;'7'=10000000;'8'=100000000;'b'=1000000000;'h'=100;'k'=1000;'m'=1000000;'-'=0;'?'=0;'+'=0;=0"
-stormdata$PROPDMG_dollars <- stormdata$PROPDMG * as.numeric(Recode(stormdata$PROPDMGEXP,
-                                                                   convert_dollars,
-                                                                   as.factor.result = FALSE))
-stormdata$CROPDMG_dollars <- stormdata$CROPDMG * as.numeric(Recode(stormdata$CROPDMGEXP,
-                                                                   convert_dollars,
-                                                                   as.factor.result = FALSE))
+stormdata$CROPDMGEXP <- tolower(stormdata$CROPDMGEXP)
+stormdata$PROPDMGEXP <- tolower(stormdata$PROPDMGEXP)
+unique(stormdata$CROPDMGEXP)
+unique(stormdata$PROPDMGEXP)
 
-# Try agAcross ited States, which types of events (as indicated in the 𝙴𝚅𝚃𝚈𝙿𝙴 variable) are most harmful with respect to population health?
+stormdata$CROPDMGEXP[stormdata$CROPDMGEXP %in% c("+","0","?","-","")] <- 0
+stormdata$CROPDMGEXP[stormdata$CROPDMGEXP == "k"] <- 3
+stormdata$CROPDMGEXP[stormdata$CROPDMGEXP == "m"] <- 6
+stormdata$CROPDMGEXP[stormdata$CROPDMGEXP == "h"] <- 2
+stormdata$CROPDMGEXP[stormdata$CROPDMGEXP == "b"] <- 9
+unique(stormdata$CROPDMGEXP)
+
+stormdata$PROPDMGEXP[stormdata$PROPDMGEXP %in% c("+","0","?","-","")] <- 0
+stormdata$PROPDMGEXP[stormdata$PROPDMGEXP == "k"] <- 3
+stormdata$PROPDMGEXP[stormdata$PROPDMGEXP == "m"] <- 6
+stormdata$PROPDMGEXP[stormdata$PROPDMGEXP == "h"] <- 2
+stormdata$PROPDMGEXP[stormdata$PROPDMGEXP == "b"] <- 9
+unique(stormdata$PROPDMGEXP)
+
+stormdata$CROPDMG_dollars <- stormdata$CROPDMG * 10^as.numeric(stormdata$CROPDMGEX) 
+stormdata$PROPDMG_dollars <- stormdata$PROPDMG * 10^as.numeric(stormdata$PROPDMGEX)
+
+# Across the United States, which types of events (as indicated in the 𝙴𝚅𝚃𝚈𝙿𝙴 variable) are most harmful with respect to population health?
 
 harm_pophealth <- aggregate(list (harm = stormdata$FATALITIES + stormdata$INJURIES),
                             list (EVTYPE = stormdata$EVTYPE),
@@ -105,7 +117,8 @@ dev.off()
 
 # Across the United States, which types of events have the greatest economic consequences?
 
-harm_econ <- aggregate(list (harm = stormdata$CROPDMG + stCROPDMG_dollars + stormdata$PROPDMG_dollars              list (EVTYPE = stormdata$EVTYPE),
+harm_econ <- aggregate(list (harm = stormdata$CROPDMG_dollars + stormdata$PROPDMG_dollars),
+                       list (EVTYPE = stormdata$EVTYPE),
                        sum)
 harm_econ <- harm_econ[with (harm_econ, order (harm, decreasing=TRUE)),]
 head(harm_econ)
@@ -118,7 +131,6 @@ ggplot(top_harm_econ, aes(x = reorder(EVTYPE, -harm), y = harm)) +
   geom_bar(stat = "identity", aes(fill = harm), position = "dodge") + 
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
   xlab("Event Type") +
-  ylab("Harmful Events") + 
+  ylab("Total Events") + 
   ggtitle("Harmful economic events (crop + property damage) to US economy")
 dev.off()
-
